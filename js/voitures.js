@@ -12,7 +12,13 @@ const prixParJour = document.querySelector("#prix-jour");
 const saveBtn = document.querySelector("#bouton-enregistrer");
 const annulerModification = document.querySelector("#annuler-modification");
 const voitureListe = document.querySelector("#liste-voitures");
+const voitureId = document.querySelector("#voiture-id");
 
+let voitures = [...voituresInitiales];
+
+const index = () => {
+return Math.max(0, ...voitures.map(v => v.id)) + 1;
+};
 
 const immatriculeRegex = /^[a-zA-Z]{4}-\d{3}$/;
 
@@ -120,8 +126,49 @@ function createCar(voiture){
 }
 
 function afficherVoiture(){
-  voitureListe.replaceChildren(...voituresInitiales.map(createCar));
+  voitureListe.replaceChildren(...voitures.map(createCar));
 }
+
+function supprimerVoiture(id){
+  const voiture = voitures.find(v => v.id === id);
+  if (!confirm("Supprimer " + voiture.marque + " " + voiture.modele + " ?"))
+    return;
+  voitures = voitures.filter(v => v.id !== id);
+  afficherVoiture();
+}
+
+function modifierVoiture(id){
+  const voiture = voitures.find(v => v.id === id);
+  voitureId.value = voiture.id;
+  voitureMarque.value = voiture.marque;
+  voitureModele.value = voiture.modele;
+  immatriculationVoiture.value = voiture.immatriculation;
+  categorieVoiture.value = voiture.categorie;
+  prixParJour.value = voiture.prixJour;
+  statutVoiture.value = voiture.statut;
+  saveBtn.textContent = "Enregistrer les modifications";
+  annulerModification.hidden = false;
+}
+
+function annuler(){
+  formulaire.reset();
+  voitureId.value = "";
+  saveBtn.textContent = "Ajouter la voiture";
+  annulerModification.hidden = true;
+}
+
+annulerModification.addEventListener("click", annuler);
+
+voitureListe.addEventListener("click", function (event){
+  const bouton = event.target.closest("[data-action]");
+  if (!bouton)
+    return;
+  const id = Number(bouton.dataset.id);
+  if (bouton.dataset.action === "supprimer")
+    supprimerVoiture(id);
+  else
+    modifierVoiture(id);
+});
 
 formulaire.addEventListener('submit', function (event){
   event.preventDefault();
@@ -136,8 +183,8 @@ formulaire.addEventListener('submit', function (event){
     return;
   }
 
-  for (let i = 0; i < voituresInitiales.length; i++){
-    if (voituresInitiales[i].immatriculation == immatriculeMaj){
+  for (let i = 0; i < voitures.length; i++){
+    if (voitures[i].immatriculation == immatriculeMaj && voitures[i].id != voitureId.value){
       console.log("already exists");
       return;
     }
@@ -147,21 +194,29 @@ formulaire.addEventListener('submit', function (event){
     console.log("Positive numbers only");
     return;
   }
-  voituresInitiales.push({
-    id: ++index,
-    marque: voitureMarque.value.trim(),
-    modele: voitureModele.value.trim(),
-    immatriculation: immatriculeMaj,
-    categorie: categorieVoiture.value,
-    prixJour: Number(prixParJour.value.trim()),
-    statut: statutVoiture.value
-  })
 
-  formulaire.reset()
-  voitureMarque.focus({
-    preventScroll: true
-  });
+  if (voitureId.value){
+    const voiture = voitures.find(v => v.id === Number(voitureId.value));
+    voiture.marque = voitureMarque.value.trim();
+    voiture.modele = voitureModele.value.trim();
+    voiture.immatriculation = immatriculeMaj;
+    voiture.categorie = categorieVoiture.value;
+    voiture.prixJour = Number(prixParJour.value);
+    voiture.statut = statutVoiture.value;
+  } else {
+    voitures.push({
+      id: index(),
+      marque: voitureMarque.value.trim(),
+      modele: voitureModele.value.trim(),
+      immatriculation: immatriculeMaj,
+      categorie: categorieVoiture.value,
+      prixJour: Number(prixParJour.value),
+      statut: statutVoiture.value
+    });
+  }
 
+  annuler();
+  voitureMarque.focus({ preventScroll: true });
   afficherVoiture();
 })
 
