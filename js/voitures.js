@@ -1,168 +1,236 @@
-import { voituresInitiales } from "./data.js";
-console.log(voituresInitiales)
+import { chargerVoitures, sauvegarderVoitures } from "./storage.js";
+import { afficherVoitures } from "./affichage.js";
 
-const mainContent = document.querySelector("#contenu");
+let voitures = chargerVoitures().map(voiture => voiture);
+
 const formulaire = document.querySelector("#formulaire-voiture");
-const voitureMarque = document.querySelector("#marque");
-const voitureModele = document.querySelector("#modele");
-const immatriculationVoiture = document.querySelector("#immatriculation");
-const categorieVoiture = document.querySelector("#categorie");
-const statutVoiture = document.querySelector("#statut");
-const prixParJour = document.querySelector("#prix-jour");
-const saveBtn = document.querySelector("#bouton-enregistrer");
-const annulerModification = document.querySelector("#annuler-modification");
-const voitureListe = document.querySelector("#liste-voitures");
-
+const inputMarque = document.querySelector("#marque");
+const inputModele = document.querySelector("#modele");
+const inputImmat = document.querySelector("#immatriculation");
+const selectCategorie = document.querySelector("#categorie");
+const selectStatut = document.querySelector("#statut");
+const inputPrix = document.querySelector("#prix-jour");
+const messageFormulaire = document.querySelector("#message-formulaire");
+const filtreRecherche = document.querySelector("#recherche");
+const filtreStatut = document.querySelector("#filtre-statut");
+const filtreCategorie = document.querySelector("#filtre-categorie");
+const triPrix = document.querySelector("#tri-prix");
+const initBouton = document.querySelector("#reinitialiser-filtres");
 
 const immatriculeRegex = /^[a-zA-Z]{4}-\d{3}$/;
 
-console.log(index);
-
-function createElement(balise, className, contenu){
-    const element = document.createElement(balise);
-    if (className)
-        element.className = className;
-    if (contenu)
-        element.textContent = contenu;
-    return element;
+function setError(selector, message){
+  document.querySelector(selector).textContent = message;
 }
 
-const header = createElement("p", "text-[red]", "Achraf");
-mainContent.append(header)
-
-// {
-//     "id": 1,
-//     "marque": "Dacia",
-//     "modele": "Sandero",
-//     "immatriculation": "AUTO-001",
-//     "categorie": "Citadine",
-//     "prixJour": 250,
-//     "statut": "Disponible"
-//   }
-
-
-/* <tr>
-    <td><strong>Dacia</strong></td>
-    <td>Sandero</td>
-    <td><span class="registration">AUTO-001</span></td>
-    <td>Citadine</td>
-    <td class="price">250 <span>DH / jour</span></td>
-    <td><span class="badge badge-disponible">Disponible</span></td>
-    <td>
-    <div class="row-actions">
-    <button
-        type="button"
-        class="button button-edit"
-        data-action="modifier"
-        data-id="1"
-        aria-label="Modifier Dacia Sandero, AUTO-001"
-        >
-          Modifier
-        </button>
-        <button
-          type="button"
-          class="button button-delete"
-          data-action="supprimer"
-          data-id="1"
-          aria-label="Supprimer Dacia Sandero, AUTO-001"
-        >
-          Supprimer
-        </button>
-      </div>
-    </td>
-</tr> */
-
-function isDisponible(status){
-  switch (status){
-    case "Disponible":
-      return "badge-disponible";
-    case "Louée":
-      return "badge-louee";
-    case "En maintenance":
-      return "badge-maintenance";
-    default:
-      return "";
+function clearErrors(){
+  const erreurs = document.querySelectorAll(".field-error");
+  for (let i = 0; i < erreurs.length; i++){
+    erreurs[i].textContent = "";
   }
 }
 
-function createCar(voiture){
-    const carSection = createElement("tr");
-    const marqueVoiture = createElement("td");
-    const strongMarque = createElement("strong", "", voiture.marque);
-    marqueVoiture.append(strongMarque);
-    const modeleVoiture = createElement("td", "", voiture.modele);
-    const immatricule = createElement("td");
-    const spanImmatricule = createElement("span", "registration", voiture.immatriculation);
-    immatricule.append(spanImmatricule);
-    const categorieDeVoiture = createElement("td", "", voiture.categorie);
-    const prixVoiture = createElement("td", "price", voiture.prixJour + " ");
-    const priceSpan = createElement("span", "", "DH / jour");
-    prixVoiture.append(priceSpan);
-    const statusDeVoiture = createElement("td");
-    const statusSpan = createElement("span", `badge ${isDisponible(voiture.statut)}`, voiture.statut);
-    statusDeVoiture.append(statusSpan);
-    const actions = createElement("td");
-    const actionContainer = createElement("div", "row-actions");
-    const modifierBtn = createElement("button", "button button-edit", "Modifier");
-    modifierBtn.setAttribute("type", "button");
-    modifierBtn.setAttribute("data-action", "modifier");
-    modifierBtn.setAttribute("data-id", voiture.id);
-    modifierBtn.setAttribute("aria-label", `Modifier ${voiture.marque} ${voiture.modele}, ${voiture.immatriculation}`);
-    const supprimerBtn = createElement("button", "button button-delete", "Supprimer");
-    supprimerBtn.setAttribute("type", "button");
-    supprimerBtn.setAttribute("data-action", "supprimer");
-    supprimerBtn.setAttribute("data-id", voiture.id);
-    supprimerBtn.setAttribute("aria-label", `Supprimer ${voiture.marque} ${voiture.modele}, ${voiture.immatriculation}`);
-    actionContainer.append(modifierBtn, supprimerBtn);
-    actions.append(actionContainer);
-    carSection.append(marqueVoiture, modeleVoiture, immatricule, categorieDeVoiture, prixVoiture, statusDeVoiture, actions);
-    return carSection;
+function afficherListe(){
+  const liste = obtenirListe();
+  afficherVoitures(liste);
+  document.querySelector("#texte-etat-vide").textContent = voitures.length === 0 ? "Le parc est vide. Ajoutez une voiture." : "Aucun resultat. Modifiez vos criteres.";
 }
 
-function afficherVoiture(){
-  voitureListe.replaceChildren(...voituresInitiales.map(createCar));
+function mettreAJour(){
+  sauvegarderVoitures(voitures);
+  afficherListe();
+}
+
+function voitureId(){
+  let max = 0;
+  for (let i = 0; i < voitures.length; i++){
+    if (max < voitures[i].id)
+      max = voitures[i].id;
+  }
+  return max + 1;
+}
+
+function immatExisteDeja(immat){
+  for (let i = 0; i < voitures.length; i++){
+    if (voitures[i].immatriculation === immat){
+        if (inputId != 0 && inputId.value == voitures[i].id)
+          return true;
+      return false;
+    }
+  }
+  return true;
 }
 
 formulaire.addEventListener('submit', function (event){
   event.preventDefault();
-  if (!voitureMarque.value.trim() || !voitureModele.value.trim() || !categorieVoiture.value || !prixParJour.value.trim() || !statutVoiture.value){
-      console.log("Empty Fields");
-      return;
+  clearErrors();
+  messageFormulaire.textContent = "";
+
+  const marque = inputMarque.value.trim();
+  const modele = inputModele.value.trim();
+  const immat = inputImmat.value.trim().toUpperCase();
+  const categorie = selectCategorie.value;
+  const statut = selectStatut.value;
+  const prix = Number(inputPrix.value.trim());
+  const voitureNeuf = {
+    id: voitureId(),
+    marque: marque,
+    modele: modele,
+    immatriculation: immat,
+    categorie: categorie,
+    prixJour: prix,
+    statut: statut
+  }
+  let valideInput = true;
+
+  if (marque === ""){
+    setError("#erreur-marque", "Ce champ est obligatoire.");
+    valideInput = false;
+  }
+  if (modele === ""){
+    setError("#erreur-modele", "Ce champ est obligatoire.");
+    valideInput = false;
+  }
+  if (immat === ""){
+    setError("#erreur-immatriculation", "Ce champ est obligatoire.");
+    valideInput = false;
+  }
+  else if (!immatriculeRegex.test(immat)){
+    setError("#erreur-immatriculation", "Format invalid. Ex: AUTO-007.");
+    valideInput = false;
+  }
+  else if (!immatExisteDeja(immat)){
+    setError("#erreur-immatriculation", "Immatriculation existe Deja.");
+    valideInput = false;
+  }
+  if (categorie === ""){
+    setError("#erreur-categorie", "Ce champ est obligatoire.");
+    valideInput = false;
+  }
+  if (prix <= 0){
+    setError("#erreur-prix-jour", "Ce champ doit etre strictement positive.");
+    valideInput = false;
   }
 
-  const immatriculeMaj = immatriculationVoiture.value.trim().toUpperCase();
-  if (!immatriculeRegex.test(immatriculeMaj)) {
-    console.log("Wrong regex input");
+  if (!valideInput)
     return;
+  if (inputId.value == 0)
+    voitures.push(voitureNeuf);
+  else {
+    const voiture = voitures.find(element => element.id == inputId.value);
+    voiture.marque = marque;
+    voiture.modele = modele;
+    voiture.immatriculation = immat;
+    voiture.categorie = categorie;
+    voiture.prixJour = prix;
+    voiture.statut = statut;
+    messageFormulaire.textContent = "Voiture modifiée avec succès.";
   }
+  mettreAJour();
 
-  for (let i = 0; i < voituresInitiales.length; i++){
-    if (voituresInitiales[i].immatriculation == immatriculeMaj){
-      console.log("already exists");
-      return;
-    }
-  }
-
-  if (Number(prixParJour.value) <= 0){
-    console.log("Positive numbers only");
-    return;
-  }
-  voituresInitiales.push({
-    id: ++index,
-    marque: voitureMarque.value.trim(),
-    modele: voitureModele.value.trim(),
-    immatriculation: immatriculeMaj,
-    categorie: categorieVoiture.value,
-    prixJour: Number(prixParJour.value.trim()),
-    statut: statutVoiture.value
-  })
-
-  formulaire.reset()
-  voitureMarque.focus({
-    preventScroll: true
-  });
-
-  afficherVoiture();
+  formulaire.reset();
+  inputId.value = "";
+  boutonEnregistrer.textContent = "Ajouter la voiture";
+  boutonAnnuler.hidden = true;
+  clearErrors();
+  inputMarque.focus();
 })
 
-afficherVoiture();
+const tbody = document.querySelector("#liste-voitures");
+const inputId = document.querySelector("#voiture-id");
+const boutonEnregistrer = document.querySelector("#bouton-enregistrer");
+const boutonAnnuler = document.querySelector("#annuler-modification");
+
+function remplirFormulaire(voiture){
+  inputId.value = voiture.id;
+  inputMarque.value = voiture.marque;
+  inputModele.value = voiture.modele;
+  inputImmat.value = voiture.immatriculation;
+  selectCategorie.value = voiture.categorie;
+  inputPrix.value = voiture.prixJour;
+  selectStatut.value = voiture.statut;
+  boutonEnregistrer.textContent = "Enregistrer les modifications";
+  boutonAnnuler.hidden = false;
+}
+
+boutonAnnuler.addEventListener("click", function (){
+  formulaire.reset();
+  inputId.value = "";
+  boutonEnregistrer.textContent = "Ajouter la voiture";
+  boutonAnnuler.hidden = true;
+  clearErrors();
+});
+
+function supprimerVoiture(id){
+  const voiture = voitures.find(element => element.id == id);
+
+  if (!confirm("Supprimer " + voiture.marque + " " + voiture.modele + " ?")){
+    return;
+  }
+  voitures = voitures.filter(element => element.id != id);
+
+  if (inputId.value == id){
+    formulaire.reset();
+    inputId.value = "";
+    clearErrors();
+  }
+  mettreAJour();
+}
+
+tbody.addEventListener("click", function (event){
+  const bouton = event.target.closest("[data-action]");
+  if (!bouton){
+    return;
+  }
+
+  const id = bouton.dataset.id;
+  if (bouton.dataset.action === "supprimer"){
+    supprimerVoiture(id);
+  }
+  else {
+    remplirFormulaire(voitures.find(element => element.id == id));
+  }
+});
+
+function obtenirListe(){
+  const recherche = filtreRecherche.value.trim().toLowerCase();
+  const statut = filtreStatut.value;
+  const categorie = filtreCategorie.value;
+  const tri = triPrix.value;
+
+  const resultat = voitures.filter(function (voiture){
+    const texte = (voiture.marque + " " + voiture.modele + " " + voiture.immatriculation).toLowerCase();
+    const rechercheValid = texte.includes(recherche);
+    const statutValid = voiture.statut === statut || statut === "";
+    const CategorieValid = voiture.categorie === categorie || categorie === "";
+    return rechercheValid && statutValid && CategorieValid;
+  });
+
+  if (tri === "croissant"){
+    resultat.sort(function(a, b){
+      return a.prixJour - b.prixJour
+    });
+  }
+  if (tri === "decroissant"){
+    resultat.sort(function(a, b){
+      return b.prixJour - a.prixJour
+    });
+  }
+  return resultat;
+}
+
+initBouton.addEventListener("click", function (){
+  filtreRecherche.value = "";
+  filtreStatut.value = "";
+  filtreCategorie.value = "";
+  triPrix.value = "";
+  afficherListe();
+});
+
+filtreRecherche.addEventListener("input", afficherListe);
+filtreStatut.addEventListener("change", afficherListe);
+filtreCategorie.addEventListener("change", afficherListe);
+triPrix.addEventListener("change", afficherListe);
+
+console.log(voitures);
+afficherListe();
